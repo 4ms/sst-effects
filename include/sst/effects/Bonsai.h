@@ -21,6 +21,7 @@
 #define INCLUDE_SST_EFFECTS_BONSAI_H
 
 #include <cstring>
+#include <cstring>
 #include "EffectCore.h"
 #include "sst/basic-blocks/params/ParamMetadata.h"
 #include "sst/basic-blocks/dsp/Lag.h"
@@ -722,11 +723,25 @@ template <size_t blockSize> inline void blockabs(float *src)
     }
 }
 
-inline int32_t super_simple_noise(int32_t last) { return last * 1103515245 + 12345; }
+inline int32_t noise_bits(uint32_t bits)
+{
+    int32_t value;
+    std::memcpy(&value, &bits, sizeof(value));
+    return value;
+}
+inline int32_t noise_seed(float last)
+{
+    // Keep the original float-quantized seed, including rounding to +2^31.
+    return noise_bits(uint32_t(int64_t(last)));
+}
+inline int32_t super_simple_noise(int32_t last)
+{
+    return noise_bits(uint32_t(last) * 1103515245u + 12345u);
+}
 template <size_t blockSize> inline void noise(float &last, float *__restrict dst)
 {
     int32_t temp alignas(16)[blockSize] = {};
-    temp[0] = super_simple_noise(last);
+    temp[0] = super_simple_noise(noise_seed(last));
     for (auto i = 1U; i < blockSize; ++i)
     {
         temp[i] = super_simple_noise(temp[i - 1]);
@@ -740,7 +755,7 @@ template <size_t blockSize> inline void noise(float &last, float *__restrict dst
 template <size_t blockSize> inline void noise_ds2(float &last, float *__restrict dst)
 {
     int32_t temp alignas(16)[blockSize] = {};
-    temp[0] = super_simple_noise(last);
+    temp[0] = super_simple_noise(noise_seed(last));
     for (auto i = 1U; i < (blockSize >> 1); ++i)
     {
         const float noise = super_simple_noise(temp[2 * i - 2]);
@@ -756,7 +771,7 @@ template <size_t blockSize> inline void noise_ds2(float &last, float *__restrict
 template <size_t blockSize> inline void noise_ds4(float &last, float *__restrict dst)
 {
     int32_t temp alignas(16)[blockSize] = {};
-    temp[0] = super_simple_noise(last);
+    temp[0] = super_simple_noise(noise_seed(last));
     for (auto i = 1U; i < (blockSize >> 2); ++i)
     {
         const float noise = super_simple_noise(temp[4 * i - 4]);

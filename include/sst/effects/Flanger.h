@@ -171,6 +171,7 @@ template <typename FXConfig> struct Flanger : core::EffectTemplateBase<FXConfig>
             memset(line, 0, DELAY_SIZE * sizeof(float));
             k = 0;
         }
+        bool nativeBounds{true};
         float value(float delayBy);
         void push(float nv)
         {
@@ -226,6 +227,8 @@ template <typename FXConfig> inline void Flanger<FXConfig>::initialize()
 template <typename FXConfig> inline float Flanger<FXConfig>::InterpDelay::value(float delayBy)
 {
     // so if delayBy is 19.2
+    if (nativeBounds)
+        delayBy = std::clamp(delayBy, 0.f, float(DELAY_SIZE - 2));
     int itap = (int)std::min(delayBy, (float)(DELAY_SIZE - 2)); // this is 19
     float fractap = delayBy - itap;                             // this is .2
     int k0 = (k + DELAY_SIZE - itap - 1) & DELAY_SIZE_MASK;     // this is 20 back
@@ -255,7 +258,7 @@ inline void Flanger<FXConfig>::processBlock(float *__restrict dataL, float *__re
     {
         longphase[c] += rate;
         if (longphase[c] >= COMBS_PER_CHANNEL)
-            longphase[c] -= COMBS_PER_CHANNEL;
+            longphase[c] = std::fmod(longphase[c], float(COMBS_PER_CHANNEL));
     }
 
     const float oneoverFreq0 = 1.0f / MIDI_0_FREQ;
@@ -280,7 +283,7 @@ inline void Flanger<FXConfig>::processBlock(float *__restrict dataL, float *__re
             if (lfophase[c][i] > 1)
             {
                 lforeset = true;
-                lfophase[c][i] -= 1;
+                lfophase[c][i] = std::fmod(lfophase[c][i], 1.f);
             }
 
             float lfoout = lfoval[c][i].v;
@@ -301,7 +304,8 @@ inline void Flanger<FXConfig>::processBlock(float *__restrict dataL, float *__re
                 float psf = ps - psi;
                 int psn = (psi + 1) & LFO_TABLE_MASK;
 
-                lfoout = sin_lfo_table[psi] * (1.0 - psf) + psf * sin_lfo_table[psn];
+                lfoout =
+                    sin_lfo_table[psi & LFO_TABLE_MASK] * (1.0 - psf) + psf * sin_lfo_table[psn];
 
                 lfoval[c][i].newValue(lfoout);
 

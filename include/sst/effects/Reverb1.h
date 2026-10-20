@@ -226,9 +226,13 @@ inline void Reverb1<FXConfig>::processBlock(float *__restrict dataL, float *__re
     mix.set_target_smoothed(this->floatValue(rev1_mix));
     width.set_target_smoothed(this->dbToLinear(this->floatValue(rev1_width)));
 
-    int pdtime = (int)(float)this->sampleRate() *
-                 this->noteToPitchIgnoringTuning(12 * this->floatValue(rev1_predelay)) *
-                 this->temposyncRatio(rev1_predelay);
+    // Reduce the original float expression before conversion: its largest
+    // legal value exceeds INT_MAX. This preserves the original 32768 wrap.
+    int pdtime =
+        int(std::fmod((int)(float)this->sampleRate() *
+                          this->noteToPitchIgnoringTuning(12 * this->floatValue(rev1_predelay)) *
+                          this->temposyncRatio(rev1_predelay),
+                      float(max_rev_dly)));
 
     const __m128 one4 = _mm_set1_ps(1.f);
     float dv = this->floatValue(rev1_damping);

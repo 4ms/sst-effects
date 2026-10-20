@@ -375,7 +375,7 @@ inline void Flanger<FXConfig>::processBlock(float *__restrict dataL, float *__re
                     // FIXME exponential creep up. We want to get there in time related to our rate
                     auto cv = lfoval[c][i].v;
                     auto diff = (lfosandhtarget[c][i] - cv) * rate * 2;
-                    lfoval[c][i].newValue(cv + diff);
+                    lfoval[c][i].newValue(rate >= 0.5f ? lfosandhtarget[c][i] : cv + diff);
                 }
                 else
                 {
